@@ -1,16 +1,17 @@
 import mido
 import subprocess
-from math import floor
+from math import floor, ceil
 
 class SingleTrackMidiDecoder:
 
-    def __init__(self, filename, track=0, resolution=4):
+    def __init__(self, filename, track=0, resolution=4, bpm=None):
         self.filename = filename
         self.file = mido.MidiFile(filename)
         self.track = self.file.tracks[track]
+        print(self.track.name)
         self.res = resolution
 
-        self.bpm = None
+        self.bpm = bpm
         self.tpb = self.file.ticks_per_beat
         self.total_ticks = 0
         for msg in self.track:
@@ -27,6 +28,7 @@ class SingleTrackMidiDecoder:
 
         for msg in self.track:
             if msg.type == 'note_on' or msg.type == 'note_off':
+                print(msg)
                 if msg.note < self.min_note:
                     self.min_note = msg.note
                 if msg.note > self.max_note:
@@ -34,16 +36,16 @@ class SingleTrackMidiDecoder:
 
         self.note_range = (self.max_note - self.min_note) + 1
         self.roll = [[0 for j in range(self.note_range)] for i in range(self.total_ticks)]
-        self.beat_roll = [[0 for j in range(self.note_range)] for i in range(int(self.total_ticks * self.res / self.tpb))]
+        self.beat_roll = [[0 for j in range(self.note_range)] for i in range(ceil(self.total_ticks * self.res / self.tpb))]
 
         current_tick = 0
         last_tick_on = [0 for i in range(self.note_range)]
 
         for msg in self.track:
-            if msg.type == 'note_on':
+            if msg.type == 'note_on' and msg.velocity != 0:
                 current_tick += msg.time
                 last_tick_on[msg.note - self.min_note] = current_tick
-            elif msg.type == 'note_off':
+            elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
                 current_tick += msg.time
                 for tick in range(last_tick_on[msg.note - self.min_note], current_tick):
                     self.roll[tick][msg.note - self.min_note] = 1

@@ -2,10 +2,11 @@ import mido
 import subprocess
 from math import floor
 from os import remove
+import numpy as np
 
 class SingleTrackMidiEncoder:
 
-    def __init__(self, roll, resolution, ticks_per_beat, bpm, min_note, threshold):
+    def __init__(self, roll, resolution, ticks_per_beat, bpm, min_note, threshold, melody_only):
         self.roll = roll 
         self.tpb = ticks_per_beat
         self.res = resolution 
@@ -19,11 +20,16 @@ class SingleTrackMidiEncoder:
 
         # Digitize the roll
         for t, notes in enumerate(self.roll):
-            for n, note_val in enumerate(notes):
-                if note_val < threshold:
-                    self.roll[t][n] = 0
-                else:
-                    self.roll[t][n] = 1
+            if melody_only:
+                note = np.argmax(notes)
+
+                self.roll[t] = [1 if n == note else 0 for n, _ in enumerate(notes)]
+            else:
+                for n, note_val in enumerate(notes):
+                    if note_val < threshold:
+                        self.roll[t][n] = 0
+                    else:
+                        self.roll[t][n] = 1
             
         
         previous = [0 for t in range(len(self.roll[0]))]
