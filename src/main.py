@@ -1,4 +1,5 @@
 from network import Network
+from inference import Inference
 from midi_decoder import SingleTrackMidiDecoder
 from midi_encoder import SingleTrackMidiEncoder
 import sys
@@ -6,14 +7,21 @@ import numpy as np
 import mido
 
 if __name__ == '__main__':
-    midi = SingleTrackMidiDecoder('data/scale_chords_small/midi/scale_c_aeolian.mid', track=0, resolution=4)
+    midi = SingleTrackMidiDecoder('data/scale_chords_small/midi/scale_a_mixolydian.mid', track=0, resolution=4)
 
-    network = Network(midi)
-    network.train(epochs=100)
+    network = Network(midi, beats_in_window=4) # i.e. 1 bar
+    #network.train(epochs=2)
 
-    output = network.compose(1, 0)
-    np.set_printoptions(threshold=sys.maxsize)
-    print(output[0:20])
+    #network.save('a_mix.h5')
+
+    composer = Inference()
+    #composer.load_trained_from_network(network)
+    composer.load_trained_from_file('a_mix.h5')
+
+    output = composer.compose(primer=network.X, length=2, initial=0)
+    #np.set_printoptions(threshold=sys.maxsize)
+    #print(output.shape)
+    #print(output[0:20])
 
     #running = True
     #while running:
