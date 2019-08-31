@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 from math import floor
-from keras.models import Sequential, Model
+from keras.models import Sequential, Model, load_model
 from keras.layers import LSTM, Input, Dense, RepeatVector
 
 class Network:
@@ -14,7 +14,7 @@ class Network:
        next section of music, using teacher forcing. Finally, we use the 
        trained decoder, coupled with a primer to generate music.
 
-       By default, we use 2 bars of music.
+       By default, we use 2 bars of 4/4 music (8 beats).
     """
 
     def __init__(self, midi_in, beats_in_window=8):
@@ -23,21 +23,7 @@ class Network:
 
         # We define the encoder inputs to be a 2d window with length defined by the
         # resolution of the midi and how many bars we want, and height as the range of
-        # notes 
-        '''encoder_in = Input(shape=(context_window * midi_in.res, midi_in.note_range))
-        self.encoder = LSTM(20, return_state=True)
-        encoder_out, h, c = encoder(encoder_in)
-        # Keep the internal state of the encoder
-        self.encoder_states = [h, c]
-
-        decoder_in = Input(shape=(context_window * midi_in.res, midi_in.note_range))
-        self.decoder_lstm = LSTM(20, return_sequences=True, return_state=True)
-        decoder_out, _, _ = self.decoder_lstm(decoder_in, initial_state=self.encoder_states)
-
-        decoder_dense = Dense(midi_in.note_range, activation='softmax')
-        decoder_out = decoder_dense(decoder_out)
-
-        self.model = Model([encoder_in, decoder_in], decoder_out)'''
+        # notes
 
         self.time_step = beats_in_window * midi_in.res
         total_beats = midi_in.total_ticks / midi_in.tpb
@@ -69,16 +55,16 @@ class Network:
         self.dec_dense = Dense(midi_in.note_range, activation='softmax')
         dec_out = self.dec_dense(dec_out)
 
-        self.model = Model(inputs=[self.enc_in, self.dec_in], outputs=[dec_out])
+        self.training_model = Model(inputs=[self.enc_in, self.dec_in], outputs=[dec_out])
         
 
-    def train(self):
+    def train(self, epochs=50):
         # Since we're doing multi-label classification instead of multiclass,
         # we use binary cross entropy loss
-        self.model.compile(optimizer='rmsprop', loss='binary_crossentropy')
-        self.model.fit([self.X, self.X], self.y, batch_size=1, epochs=50)
+        self.training_model.compile(optimizer='rmsprop', loss='binary_crossentropy')
+        self.training_model.fit([self.X, self.X], self.y, batch_size=1, epochs=epochs)
     
-    def compose(self):
+    def compose(self, length=12, initial=None):
         # Create inference model
         enc = Model(self.enc_in, self.enc_state)
         
@@ -90,16 +76,33 @@ class Network:
         dec_model = Model([self.dec_in] + dec_state_in,
                           [dec_out] + dec_state_out)
         
-        initial = np.random.randint(0, len(self.X) - 1)
+        if initial == None:
+            initial = np.random.randint(0, len(self.X) - 1)
+
         initial_X = self.X[initial].reshape(1, self.X.shape[1], self.X.shape[2])
         states = enc.predict(initial_X)
 
         target_seq = initial_X
         
-        output, h, c = dec_model.predict([target_seq] + states)
-        #print(output.shape)
-        #print(output[0:10])
+        song = np.zeros(shape=initial_X.shape)
+        song_initialised = False
+        song = [np.zeros(shape=initial_X.shape) for _ in range(length)]
+        for i in range(length):
+            output, h, c = dec_model.predict([target_seq] + states)
+            song[i] = output[0]
 
-        return output
+            target_seq = output 
+            states = [h, c]
+        
+        song = np.array(song)
 
+        return song.reshape(song.shape[0] * song.shape[1], song.shape[2])
+
+
+    def save(self, filename):
+        self.training_model.save(filename)
+
+    
+    def load_training(self, filename):
+        self.training_model = load_model(filename)
 
