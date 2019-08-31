@@ -2,7 +2,7 @@ import numpy as np
 import sys
 from math import floor
 from keras.models import Sequential, Model, load_model
-from keras.layers import LSTM, Input, Dense, RepeatVector
+from keras.layers import LSTM, Input, Dense, Dropout
 
 class Network:
     """A class representing a neural network utilising an LSTM seq2seq.
@@ -39,18 +39,25 @@ class Network:
             if i > 0:
                 self.y[i - 1] = midi_in.beat_roll[beat_start + self.time_step:beat_start + self.time_step * 2]
         
-        self.hidden = 150
+        self.hidden = 128
 
-        # Single LSTM encoder
+        # Stacked LSTM encoder
         self.enc_in = Input(shape=(self.time_step, midi_in.note_range))
-        self.enc_lstm = LSTM(self.hidden, return_sequences=True, return_state=True)
-        enc_out, enc_h, enc_c = self.enc_lstm(self.enc_in)
+
+        self.enc_lstm_1 = LSTM(self.hidden, return_sequences=True)
+        enc_out = self.enc_lstm_1(self.enc_in)
+        enc_out = Dropout(0.3)(enc_out)
+
+        self.enc_lstm = LSTM(self.hidden, return_state=True)
+        enc_out, enc_h, enc_c = self.enc_lstm(enc_out)
         self.enc_state = [enc_h, enc_c]
 
-        # Single LSTM Decoder
+        # Stacked LSTM Decoder
         self.dec_in = Input(shape=(self.time_step, midi_in.note_range))
+        self.dec_lstm_1 = LSTM(self.hidden, return_sequences=True)
+        dec_out = self.dec_lstm_1(self.dec_in, initial_state=self.enc_state)
         self.dec_lstm = LSTM(self.hidden, return_sequences=True, return_state=True)
-        dec_out, _, _ = self.dec_lstm(self.dec_in, initial_state=self.enc_state)
+        dec_out, _, _ = self.dec_lstm(dec_out)
 
         self.dec_dense = Dense(midi_in.note_range, activation='softmax')
         dec_out = self.dec_dense(dec_out)
@@ -62,7 +69,7 @@ class Network:
         # Since we're doing multi-label classification instead of multiclass,
         # we use binary cross entropy loss
         self.training_model.compile(optimizer='rmsprop', loss='binary_crossentropy')
-        self.training_model.fit([self.X, self.X], self.y, batch_size=1, epochs=epochs)
+        self.training_model.fit([self.X, self.X], self.y, batch_size=1, epochs=epochs, validation_split=0.2)
     
     def compose(self, length=12, initial=None):
         # Create inference model
@@ -70,7 +77,8 @@ class Network:
         
         dec_state_in = [Input(shape=(self.hidden,)), Input(shape=(self.hidden,))]
 
-        dec_out, dec_h, dec_c = self.dec_lstm(self.dec_in, initial_state=dec_state_in)
+        dec_out = self.dec_lstm_1(self.dec_in, initial_state=dec_state_in)
+        dec_out, dec_h, dec_c = self.dec_lstm(dec_out)
         dec_state_out = [dec_h, dec_c]
         dec_out = self.dec_dense(dec_out)
         dec_model = Model([self.dec_in] + dec_state_in,

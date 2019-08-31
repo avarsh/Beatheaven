@@ -6,10 +6,10 @@ import numpy as np
 import mido
 
 if __name__ == '__main__':
-    midi = SingleTrackMidiDecoder('data/scale_chords_small/midi/scale_c_ionian.mid', track=1, resolution=4, bpm=108)
+    midi = SingleTrackMidiDecoder('data/scale_chords_small/midi/scale_c_aeolian.mid', track=0, resolution=4)
 
     network = Network(midi)
-    network.train(epochs=250)
+    network.train(epochs=100)
 
     output = network.compose(1, 0)
     np.set_printoptions(threshold=sys.maxsize)
@@ -19,8 +19,8 @@ if __name__ == '__main__':
     #while running:
         #threshold = float(input('Threshold? > '))
 
-    song = SingleTrackMidiEncoder(output, resolution=2, ticks_per_beat=midi.tpb, 
-                                    bpm=108/2, min_note=midi.min_note, threshold=0.1, melody_only=True)
+    song = SingleTrackMidiEncoder(output, resolution=4, ticks_per_beat=midi.tpb, 
+                                    bpm=120, min_note=midi.min_note, threshold=0.1, melody_only=True)
     song.play()
 
     #    do_save = input('Save? [y/n] > ')
