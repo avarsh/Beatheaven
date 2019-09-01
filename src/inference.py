@@ -8,7 +8,7 @@ from keras.layers import LSTM, Input, Dense, Dropout
 class Inference:
     """A class which can use a trained set of encoders and decoders to generate music"""
 
-    def __init__(self):
+    def __init__(self, beats_in_window):
         self.enc_in = None
         self.enc_state = None
         self.dec_in = None
@@ -16,6 +16,8 @@ class Inference:
         self.dec_lstm_2 = None
         self.dec_dense = None
         self.hidden = None
+
+        self.beats_in_window = beats_in_window
         
         self.enc_model = None 
         self.dec_model = None
@@ -58,7 +60,7 @@ class Inference:
                           [dec_out] + dec_state_out)
         
 
-    def compose(self, primer, length=1, initial=None):
+    def compose(self, primer, length_in_bars=1, initial=None):
         if initial == None:
             initial = np.random.randint(0, len(primer) - 1)
 
@@ -68,8 +70,9 @@ class Inference:
         target_seq = initial_X
         
         song = np.zeros(shape=initial_X.shape)
-        song = [np.zeros(shape=initial_X.shape) for _ in range(length)]
-        for i in range(length):
+        iters = int(length_in_bars / (self.beats_in_window / 4)) # 4 beats in a bar
+        song = [np.zeros(shape=initial_X.shape) for _ in range(iters)]
+        for i in range(iters):
             output, h, c = self.dec_model.predict([target_seq] + states)
             song[i] = output[0]
 

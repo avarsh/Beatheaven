@@ -28,7 +28,6 @@ class SingleTrackMidiDecoder:
 
         for msg in self.track:
             if msg.type == 'note_on' or msg.type == 'note_off':
-                print(msg)
                 if msg.note < self.min_note:
                     self.min_note = msg.note
                 if msg.note > self.max_note:

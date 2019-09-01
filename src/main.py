@@ -7,18 +7,23 @@ import numpy as np
 import mido
 
 if __name__ == '__main__':
-    midi = SingleTrackMidiDecoder('data/scale_chords_small/midi/scale_a_mixolydian.mid', track=0, resolution=4)
+    resolution = 4
+    midi = SingleTrackMidiDecoder('data/scale_chords_small/midi/scale_a_mixolydian.mid', track=0, resolution=resolution)
 
-    network = Network(midi, beats_in_window=4) # i.e. 1 bar
-    #network.train(epochs=2)
+    network = Network(midi, beats_in_window=4)
+    network.train(epochs=80)
 
-    #network.save('a_mix.h5')
+    network.save('a_mix.h5')
 
-    composer = Inference()
+    composer = Inference(network.beats_in_window)
     #composer.load_trained_from_network(network)
     composer.load_trained_from_file('a_mix.h5')
 
-    output = composer.compose(primer=network.X, length=2, initial=0)
+    output = composer.compose(primer=network.X, length_in_bars=8)
+    print("=========================================================")
+    print("Generated", str(output.shape[0]), "slices. Using resolution of", str(resolution), "slices per beat, so", \
+            str(output.shape[0]/resolution), "beats generated, which is", str(output.shape[0]/(resolution * 4)), "bars in 4/4 time.")
+    print("=========================================================")
     #np.set_printoptions(threshold=sys.maxsize)
     #print(output.shape)
     #print(output[0:20])
